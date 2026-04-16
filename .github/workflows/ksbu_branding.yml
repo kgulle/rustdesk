@@ -1,0 +1,22 @@
+name: Apply KSBU Branding
+on: workflow_dispatch
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: master
+      - run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - run: |
+          wget -q -O ksbu_logo.png https://www.ksbu.edu.tr/views/index/maintemplate2_1/public/images/logo-1.png
+          convert -resize 256x256 -background transparent ksbu_logo.png res/icon.ico
+          convert -resize 256x256 -background transparent ksbu_logo.png res/logo-256x256.png
+          convert -resize 256x256 -background transparent ksbu_logo.png res/logo.svg
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add res/
+          git commit -m "Apply KSBU Branding"
+          git push origin master
