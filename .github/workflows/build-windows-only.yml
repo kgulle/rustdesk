@@ -346,3 +346,57 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           files: |
             ./SignOutput/rustdesk-*.exe
+
+  # ─── Sunucuya Otomatik Deploy ──────────────────────────────────────────────
+  deploy-to-server:
+    name: Deploy EXE to yardim.ksbu.edu.tr
+    needs: [build-windows-x64, build-windows-x86]
+    runs-on: ubuntu-latest
+    if: ${{ inputs.upload-artifact }}
+    steps:
+      - name: Download x64 installer artifact
+        uses: actions/download-artifact@master
+        with:
+          name: rustdesk-windows-x64-installer
+          path: ./deploy/x64
+
+      - name: Download x86 installer artifact
+        uses: actions/download-artifact@master
+        with:
+          name: rustdesk-windows-x86-sciter-installer
+          path: ./deploy/x86
+
+      - name: List downloaded files
+        run: |
+          echo "=== x64 files ==="
+          ls -lh ./deploy/x64/
+          echo "=== x86 files ==="
+          ls -lh ./deploy/x86/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Upload EXE files to server
+        run: |
+          # x64 EXE yükleme
+          X64_EXE=$(ls ./deploy/x64/*.exe 2>/dev/null | head -1)
+          if [ -n "$X64_EXE" ]; then
+            echo "Uploading x64: $X64_EXE"
+            scp -o StrictHostKeyChecking=no "$X64_EXE" ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/destek/KSBU-Destek-x64.exe
+          fi
+
+          # x86 EXE yükleme
+          X86_EXE=$(ls ./deploy/x86/*.exe 2>/dev/null | head -1)
+          if [ -n "$X86_EXE" ]; then
+            echo "Uploading x86: $X86_EXE"
+            scp -o StrictHostKeyChecking=no "$X86_EXE" ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/destek/KSBU-Destek-x86.exe
+          fi
+
+      - name: Verify upload on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "ls -lh /var/www/destek/*.exe"
+          echo "✅ Dosyalar sunucuya başarıyla yüklendi!"
